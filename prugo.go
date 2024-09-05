@@ -1,12 +1,17 @@
 package prugo
 
 import (
-	"net/url"
+	"net/http"
+	"slices"
 	"time"
 )
 
+type Config struct {
+	headers http.Header
+}
+
 type Prugo interface {
-	Get()
+	Get(string, Config) (*http.Response, error)
 	Post()
 	Put()
 	Patch()
@@ -14,27 +19,23 @@ type Prugo interface {
 }
 
 type prugo struct {
-	baseURL *url.URL
-	headers map[string]string
+	baseURL string
+	headers http.Header
 	timeout time.Duration
 }
 
-func New(baseURL string, headers map[string]string, timeout time.Duration) (Prugo, error) {
-	var err error
+func New(baseURL string, headers http.Header, timeout time.Duration) Prugo {
 
 	p := &prugo{
-		baseURL: &url.URL{},
+
 		timeout: time.Second,
-		headers: map[string]string{
-			"Content-Type": "application/json",
+		headers: http.Header{
+			"Content-Type": {"application/json"},
 		},
 	}
 
 	if baseURL != "" {
-		p.baseURL, err = url.Parse(baseURL)
-		if err != nil {
-			return p, err
-		}
+		p.baseURL = baseURL
 	}
 
 	if headers != nil {
@@ -45,10 +46,37 @@ func New(baseURL string, headers map[string]string, timeout time.Duration) (Prug
 		p.timeout = timeout
 	}
 
-	return p, nil
+	return p
 }
 
-func (p *prugo) Get() {
+func (p *prugo) Get(url string, config Config) (*http.Response, error) {
+
+	requestURL := p.baseURL + url
+
+	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if config.headers != nil {
+		for k, v := range p.headers {
+			_, ok := config.headers[k]
+			if !ok {
+				config.headers[k] = v
+			} else {
+				slices.Concat(config.headers[k], v)
+			}
+		}
+	}
+
+	req.Header = config.headers
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 
 }
 

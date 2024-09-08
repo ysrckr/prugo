@@ -11,7 +11,7 @@ type Config struct {
 }
 
 type Prugo interface {
-	Get(string, Config) (*http.Response, error)
+	Get(string, *Config) (*http.Response, error)
 	Post()
 	Put()
 	Patch()
@@ -49,7 +49,7 @@ func New(baseURL string, headers http.Header, timeout time.Duration) Prugo {
 	return p
 }
 
-func (p *prugo) Get(url string, config Config) (*http.Response, error) {
+func (p *prugo) Get(url string, config *Config) (*http.Response, error) {
 
 	requestURL := p.baseURL + url
 
@@ -58,7 +58,9 @@ func (p *prugo) Get(url string, config Config) (*http.Response, error) {
 		return nil, err
 	}
 
-	if config.headers != nil {
+	req.Header = p.headers
+
+	if config != nil && config.headers != nil {
 		for k, v := range p.headers {
 			_, ok := config.headers[k]
 			if !ok {
@@ -67,9 +69,8 @@ func (p *prugo) Get(url string, config Config) (*http.Response, error) {
 				slices.Concat(config.headers[k], v)
 			}
 		}
+		req.Header = config.headers
 	}
-
-	req.Header = config.headers
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
